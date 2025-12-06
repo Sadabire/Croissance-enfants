@@ -1,0 +1,433 @@
+---
+title: "Projet pour la SAE 5-03"
+author: "Sidati El Ghadhi"
+date: "2025-11-28"
+output: html_document
+---
+
+```{r}
+
+
+#====== Projet pour la SAE 5-03 ========
+#====== croissance des enfants =========
+#====== Premier Sujet ==================
+#====== Chargement des packages ========
+library(dplyr)
+library(ggplot2)
+library(tidyverse)
+library(ggthemes) # Pour des graphiques plus propres :
+library(class)
+library(MASS)
+library(e1071)
+library(dplyr)
+#Les fonctions exactitude
+source("C:/Users/HP/Downloads/Fonctions_exactitude.R")
+
+#Importation de la base de données
+croissance <- read.csv("C:/Users/HP/Downloads/croissance.csv")
+
+
+#Vérification des données manquantes
+print(colSums(is.na(croissance)))
+
+croissance %>% #lignes qui contiennent les données manquantes
+  filter(if_any(everything(), is.na))
+
+croissance %>% #Afficher unfiquement les lignes avec sexe NA
+  filter(is.na(sexe))
+
+sum(duplicated(croissance))#verification des doublons
+
+# #detection des valeurs abérantes
+# taille_min <- 40   # cm
+# taille_max <- 220  # cm
+# poids_min  <- 2    # kg
+# poids_max  <- 150  # kg
+# 
+# # Identifier les valeurs aberrantes
+# croissance %>%
+#   filter(taille < taille_min | taille > taille_max | poids < poids_min | poids > poids_max)
+
+
+#propager le sexe à l’ensemble des lignes d’un individu
+croissance <- croissance %>%
+  group_by(ind) %>%
+  mutate(
+    sexe = ifelse(is.na(sexe), 
+                  # si sexe est NA, on prend la valeur connue dans le groupe
+                  first(na.omit(sexe)), 
+                  sexe)
+  ) %>%
+  ungroup()
+print(colSums(is.na(croissance)))
+
+#Interpolation spline pour la taille et le poids
+#Individu par individu
+interpolation_individu <- function(df_ind) {
+  # Si aucune valeur manquante → rien à faire
+  if (all(!is.na(df_ind$taille)) & all(!is.na(df_ind$poids))) {
+    return(df_ind)
+  }
+  
+  # Tri par âge
+  df_ind <- df_ind[order(df_ind$age), ]
+  
+  # --- Interpolation taille ---
+  if (sum(!is.na(df_ind$taille)) >= 2) {
+    spline_taille <- spline(df_ind$age[!is.na(df_ind$taille)],
+                            df_ind$taille[!is.na(df_ind$taille)],
+                            xout = df_ind$age)$y
+    df_ind$taille[is.na(df_ind$taille)] <- spline_taille[is.na(df_ind$taille)]
+  }
+  # --- Interpolation poids ---
+  if (sum(!is.na(df_ind$poids)) >= 2) {
+    spline_poids <- spline(df_ind$age[!is.na(df_ind$poids)],
+                           df_ind$poids[!is.na(df_ind$poids)],
+                           xout = df_ind$age)$y
+    df_ind$poids[is.na(df_ind$poids)] <- spline_poids[is.na(df_ind$poids)]
+  }
+  
+  return(df_ind)
+}
+
+### Application à tous les individus
+croissance_interp <- croissance %>%
+  group_by(ind) %>%
+  group_modify(~ interpolation_individu(.x)) %>%
+  ungroup()
+
+# Vérification après interpolation
+summary(croissance_interp)
+colSums(is.na(croissance_interp))
+str(croissance_interp)
+#na<-nrow(croissance_interp)
+
+#===============Question 2) Analyse descriptive================
+
+### 1. Structure de la base
+
+n_lignes <- nrow(croissance_interp)
+n_individus <- length(unique(croissance_interp$ind))
+
+mesures_par_ind <- croissance_interp %>%
+  group_by(ind) %>%
+  summarise(n = n()) %>%
+  summarise(mean = mean(n), median = median(n))
+
+n_lignes
+n_individus
+mesures_par_ind
+
+
+### 1b. IMC (calcul)
+croissance_interp <- croissance_interp %>%
+  mutate(IMC = poids / (taille/100)^2)
+
+# Sélection des variables numériques
+vars <- croissance_interp %>%
+  dplyr::select(age, taille, poids, IMC)
+
+# Tableau statistiques descriptives globales
+stats_globales <- vars %>%
+  summarise(
+    Min = sapply(., min, na.rm = TRUE),
+    Q1  = sapply(., quantile, 0.25, na.rm = TRUE),
+    Moyenne = sapply(., mean, na.rm = TRUE),
+    Médiane = sapply(., median, na.rm = TRUE),
+    Q3  = sapply(., quantile, 0.75, na.rm = TRUE),
+    Max = sapply(., max, na.rm = TRUE),
+    Ecart_type = sapply(., sd, na.rm = TRUE)
+  ) %>%
+  t() %>%                    # transpose pour avoir les variables en colonne
+  as.data.frame()
+
+# Affichage
+stats_globales
+
+
+### 2. Répartition par sexe
+
+table(croissance_interp$sexe)
+prop.table(table(croissance_interp$sexe))#49,78% Feminin et 50,22% Maculin
+
+### 4. Statistiques descriptives taille & poids
+
+croissance_interp %>%
+  group_by(sexe) %>%
+  summarise(
+    taille_moy = mean(taille),
+    taille_sd = sd(taille),
+    poids_moy = mean(poids),
+    poids_sd = sd(poids)
+  )
+
+
+
+### 5A. Taille en fonction de l’âge selon le sexe
+
+ggplot(croissance_interp, aes(x = age, y = taille, color = sexe)) +
+  geom_smooth(se = FALSE) +
+  theme_minimal() +
+  ggtitle("Taille en fonction de l'âge par sexe")
+
+
+### 5B. Poids en fonction de l’âge selon le sexe
+ggplot(croissance_interp, aes(x = age, y = poids, color = sexe)) +
+  geom_smooth(se = FALSE) +
+  theme_minimal() +
+  ggtitle("Poids en fonction de l'âge par sexe")
+
+
+### 5C. IMC (graphique)
+
+ggplot(croissance_interp, aes(x = age, y = IMC, color = sexe)) +
+  geom_smooth(se = FALSE) +
+  theme_minimal() +
+  ggtitle("IMC en fonction de l'âge par sexe")
+
+
+### ==========Question 3 ==========: Interpolation spline aux âges 1 à 18
+# Liste des âges standardisés
+ages_cibles <- 1:18
+
+# Préparation des données : s'assurer que chaque individu a assez de points
+individus_valides <- croissance_interp %>%
+  group_by(ind) %>%
+  summarise(
+    sexe = first(sexe),
+    n_taille = sum(!is.na(taille)),
+    n_poids = sum(!is.na(poids)),
+    age_min = min(age),
+    age_max = max(age)
+  ) %>%
+  filter(n_taille >= 2 & n_poids >= 2) %>%
+  pull(ind)
+
+cat("Nombre d'individus valides pour l'interpolation :", length(individus_valides), "\n")
+
+# Filtrer seulement les individus valides
+croissance_valide <- croissance_interp %>%
+  filter(ind %in% individus_valides)
+
+# Fonction simple d'interpolation
+interpoler_individu <- function(id) {
+  donnees <- croissance_valide %>% filter(ind == id)
+  sexe_ind <- unique(donnees$sexe)
+
+  # Interpolations
+  taille_interp <- spline(donnees$age, donnees$taille, xout = ages_cibles)$y
+  poids_interp <- spline(donnees$age, donnees$poids, xout = ages_cibles)$y
+
+  data.frame(
+    ind = rep(id, 18),
+    sexe = rep(sexe_ind, 18),
+    age = ages_cibles,
+    taille = taille_interp,
+    poids = poids_interp
+  )
+}
+
+# Application
+library(purrr)
+croissance_finale <- map_dfr(individus_valides, interpoler_individu)
+
+# Aperçu
+head(croissance_finale)
+
+# Visualisation rapide pour vérifier
+ggplot(croissance_finale, aes(x = age, y = taille, color = sexe)) +
+  geom_smooth(se = FALSE) +
+  theme_minimal() +
+  ggtitle("Taille interpolée (1-18 ans) par sexe") +
+  scale_x_continuous(breaks = 1:18)
+
+ggplot(croissance_finale, aes(x = age, y = poids, color = sexe)) +
+  geom_smooth(se = FALSE) +
+  theme_minimal() +
+  ggtitle("Poids interpolé (1-18 ans) par sexe") +
+  scale_x_continuous(breaks = 1:18)
+
+#4 tests t : différence filles/ garçons pour chaque âge
+#séparer M et F
+# Séparer les données par sexe
+donneF <- croissance_finale %>% filter(sexe == "F")
+donneM <- croissance_finale %>% filter(sexe == "M")
+
+# Âges à tester
+ages_test <- 1:18
+
+# Fonction pour effectuer le test t en vérifiant qu'il y a assez de données
+test_t_age <- function(var, age) {
+  x <- donneF[[var]][donneF$age == age]
+  y <- donneM[[var]][donneM$age == age]
+  
+  if(length(x) < 2 | length(y) < 2){
+    return(NA)  # pas assez de données
+  } else {
+    return(t.test(x, y)$p.value)
+  }
+}
+
+# Calcul des p-values pour chaque âge
+pvals_poids <- sapply(ages_test, function(a) test_t_age("poids", a))
+pvals_taille <- sapply(ages_test, function(a) test_t_age("taille", a))
+
+# Résultats
+res_test <- data.frame(
+  age = ages_test,
+  p_poids = pvals_poids,
+  signif_poids = pvals_poids < 0.05,
+  p_taille = pvals_taille,
+  signif_taille = pvals_taille < 0.05
+)
+
+# Affichage
+res_test
+
+
+
+# ===== 5) Classification supervisée - tous les modèles =====
+
+
+# Colonnes explicatives et variable cible
+croissance_finale$ind <- as.factor(croissance_finale$ind) #rendre les var en facteur
+croissance_finale$sexe <- as.factor(croissance_finale$sexe)
+colonnes_X <- c("age", "taille", "poids")
+colonne_z  <- "sexe"
+# Jeu de données
+donnees_interpolees <- croissance_finale
+
+set.seed(123)
+n <- nrow(donnees_interpolees)
+n_train <- floor(0.8 * n)
+index_train <- sample(n, n_train)
+
+data_train <- donnees_interpolees[index_train, ]
+data_test  <- donnees_interpolees[-index_train, ]
+
+# ---- Exactitude pour chaque modèle ----
+# 1) AD (Arbre de decision)
+acc_ad <- exactitude_ad(data_train, data_test, colonnes_X, colonne_z)
+
+# 2) LDA
+acc_lda <- exactitude_lda(data_train, data_test, colonnes_X, colonne_z)
+
+# 3) QDA
+acc_qda <- exactitude_qda(data_train, data_test, colonnes_X, colonne_z)
+
+# 4) KNN
+acc_knn <- exactitude_knn(data_train, data_test, colonnes_X, colonne_z, k = 5)
+
+# 5) Bayes
+acc_bay <- exactitude_bay(data_train, data_test, colonnes_X, colonne_z)
+
+# 6) Régression logistique
+acc_rl <- exactitude_rl(data_train, data_test, colonnes_X, colonne_z)
+
+
+# Résumé des performances
+res_classif <- c(
+  AD    = acc_ad,
+  LDA   = acc_lda,
+  QDA   = acc_qda,
+  KNN   = acc_knn, 
+  Bayes = acc_bay,
+  RL    = acc_rl
+)
+
+res_classif
+
+#6) validation croisée
+# KNN uniquement pour validation croisée
+k_fold <- donnees_interpolees[, c(colonnes_X, colonne_z)]
+k_fold <- na.omit(k_fold)
+k_fold <- as.data.frame(k_fold)
+
+set.seed(123)
+K <- 10
+rep_folds <- sample(rep(1:K, length.out = nrow(k_fold)))
+exactitude_cv <- numeric(K)
+
+for(k in 1:K){
+  data_train <- k_fold[rep_folds != k, ]
+  data_test  <- k_fold[rep_folds == k, ]
+  
+  X_train <- as.matrix(data_train[, colonnes_X])
+  X_test  <- as.matrix(data_test[, colonnes_X])
+  z_train <- data_train[[colonne_z]]
+  z_test  <- data_test[[colonne_z]]
+  
+  z_pred <- knn(X_train, X_test, z_train, k = 5)
+  exactitude_cv[k] <- mean(z_pred == z_test)
+}
+
+mean(exactitude_cv)
+sd(exactitude_cv)
+
+#7)Détection des enfants à surveiller
+# IMC
+enfants_suspects_IMC <- donnees_interpolees %>%
+  mutate(
+    taille_m = taille / 100,
+    IMC      = poids / (taille_m^2)
+  ) %>%
+  group_by(ind) %>%
+  summarise(
+    sexe      = first(sexe),
+    IMC_moyen = mean(IMC, na.rm = TRUE),
+    imc_anormal = (IMC_moyen < 18 | IMC_moyen > 35),
+    .groups   = "drop"
+  ) %>%
+  filter(imc_anormal == TRUE)
+
+# Croissance atypique par KNN
+X_all <- as.matrix(donnees_interpolees[, colonnes_X])
+z_all <- donnees_interpolees$sexe
+sexe_pred <- knn(X_all, X_all, z_all, k = 5)
+donnees_interpolees$sexe_pred <- sexe_pred
+
+alerte_croissance <- donnees_interpolees %>%
+  group_by(ind) %>%
+  summarise(
+    sexe_reel = first(sexe),
+    proportion_inversee = mean(sexe_pred != sexe),
+    courbe_sexe_oppose = (proportion_inversee > 0.5),
+    .groups = "drop"
+  )
+
+# Fusion IMC et courbes atypiques
+suspects_courbe <- alerte_croissance %>%
+  transmute(ind, sexe = sexe_reel, courbe_sexe_oppose)
+
+suspects_imc <- enfants_suspects_IMC %>%
+  transmute(ind, sexe, imc_anormal = TRUE)
+
+enfants_a_surveiller <- full_join(suspects_courbe, suspects_imc,
+                                  by = c("ind", "sexe")) %>%
+  mutate(
+    courbe_sexe_oppose = ifelse(is.na(courbe_sexe_oppose), FALSE, courbe_sexe_oppose),
+    imc_anormal        = ifelse(is.na(imc_anormal),        FALSE, imc_anormal),
+    a_surveiller       = courbe_sexe_oppose | imc_anormal
+  )
+
+# Résumés
+nb_total   <- nrow(enfants_a_surveiller)
+nb_courbe  <- sum(enfants_a_surveiller$courbe_sexe_oppose)
+nb_imc     <- sum(enfants_a_surveiller$imc_anormal)
+# enfants_double_anomalie
+nb_les_2   <- sum(enfants_a_surveiller$courbe_sexe_oppose & enfants_a_surveiller$imc_anormal)
+
+
+
+nb_total; nb_courbe; nb_imc; nb_les_2;
+# Enfants présentant les deux anomalies
+enfants_double_anomalie <- enfants_a_surveiller %>%
+# filter(courbe_sexe_oppose & imc_anormal)
+    filter(courbe_sexe_oppose == TRUE,
+         imc_anormal == TRUE)
+
+enfants_double_anomalie
+
+
+```
+
