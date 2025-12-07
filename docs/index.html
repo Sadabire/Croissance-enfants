@@ -1,0 +1,113 @@
+
+---
+
+# 2) Portfolio HTML stylé — fichiers à créer dans `docs/`
+
+Je te fournis 3 fichiers minimum à mettre dans `C:\Users\jodab\Documents\Croissance-enfants\docs\` :
+
+- `index.html`
+- `assets/style.css` (crée le dossier `assets` puis `style.css`)
+- `assets/favicon.png` (optionnel ; tu peux mettre l'icône de ton choix)
+
+## 2.1 `index.html`
+
+Crée `docs/index.html` et colle ceci :
+
+```html
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Joël Dabiré — Portfolio Data Scientist</title>
+  <link rel="stylesheet" href="assets/style.css">
+  <meta name="description" content="Portfolio de Joël Dabiré — projets Data Science : analyse de la croissance, classification supervisée, visualisation, reproducibility.">
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="brand">
+        <h1>Joël Dabiré</h1>
+        <p class="role">Étudiant BUT 3 — Data Scientist (Exploration & Modélisation Statistique)</p>
+      </div>
+      <nav class="top-nav">
+        <a href="#projects">Projets</a>
+        <a href="#about">À propos</a>
+        <a href="#skills">Compétences</a>
+        <a href="#contact">Contact</a>
+      </nav>
+    </div>
+  </header>
+
+  <section class="hero container">
+    <div class="hero-left">
+      <h2>Analyse de la croissance des enfants</h2>
+      <p class="subtitle">Projet de data mining — interpolation spline, tests statistiques, 6 modèles testés, KNN retenu. Vitrine reproductible.</p>
+      <p class="cta-row">
+        <a class="btn primary" href="https://github.com/Sadabire/Croissance-enfants" target="_blank">Voir le projet sur GitHub</a>
+        <a class="btn ghost" href="#projects">Voir mes projets</a>
+      </p>
+    </div>
+    <div class="hero-right">
+      <img src="assets/hero-placeholder.png" alt="Hero plot" id="hero-img">
+    </div>
+  </section>
+
+  <main class="container">
+    <section id="projects" class="section">
+      <h3 class="section-title">Projets</h3>
+      <div class="cards">
+        <!-- Exemple de carte de projet (dupliquer pour ajouter des projets) -->
+        <article class="card">
+          <img src="assets/project-croissance-thumb.png" alt="Croissance enfants thumbnail" class="card-thumb">
+          <div class="card-body">
+            <h4>Analyse de la croissance des enfants</h4>
+            <p>Nettoyage, interpolation spline, comparaison statistique, 6 modèles de classification testés. KNN retenu (accuracy ≈ 72.5%).</p>
+            <div class="card-actions">
+              <a class="btn small" href="https://github.com/Sadabire/Croissance-enfants" target="_blank">Voir le repo</a>
+              <a class="btn small ghost" href="https://sadabire.github.io/Croissance-enfants/" target="_blank">Voir la page</a>
+            </div>
+          </div>
+        </article>
+        <!-- Fin carte projet -->
+      </div>
+    </section>
+
+    <section id="about" class="section">
+      <h3 class="section-title">À propos / About</h3>
+      <div class="two-col">
+        <div>
+          <p>Étudiant en BUT 3 Science des Données — parcours Exploration & Modélisation Statistique. Passionné par l'analyse de données, la modélisation et la production d'outils reproductibles (R, RMarkdown, renv).</p>
+        </div>
+        <div>
+          <p>Student in BUT 3 Data Science — Exploration & Statistical Modeling track. Interested in data analysis, modeling and reproducible workflows (R, RMarkdown, renv).</p>
+        </div>
+      </div>
+    </section>
+
+    <section id="skills" class="section">
+      <h3 class="section-title">Compétences / Skills</h3>
+      <ul class="skill-list">
+        <li>R (tidyverse, ggplot2, caret)</li>
+        <li>Exploration & Feature engineering</li>
+        <li>Modèles supervisés (KNN, LDA, QDA, tree, logistic)</li>
+        <li>RMarkdown, Git, GitHub Pages</li>
+        <li>Visualisation interactive (Plotly, Shiny / Streamlit)</li>
+      </ul>
+    </section>
+
+    <section id="contact" class="section">
+      <h3 class="section-title">Contact</h3>
+      <p>Email : <a href="mailto:ton.email@exemple.com">ton.email@exemple.com</a></p>
+      <p>GitHub : <a href="https://github.com/Sadabire" target="_blank">github.com/Sadabire</a></p>
+      <p>LinkedIn : <a href="https://www.linkedin.com/in/tonprofil" target="_blank">ton profil LinkedIn</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      <p>© Joël Dabiré — Portfolio Data Scientist — Projet : Croissance des enfants</p>
+    </div>
+  </footer>
+</body>
+</html>
